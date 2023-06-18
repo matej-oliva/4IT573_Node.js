@@ -28,4 +28,4 @@
 - 33% závěrečná zkouška
   - možnost získat více nad 33 bodů
   - test na poslední hodině (je nutná prezence, možno omluvit předem)
-- Jednotlivé části nemají nutné minimum. To jak získáte 60 bodů je na vá
+- Jednotlivé části nemají nutné minimum. To jak získáte 60 bodů je na vás
