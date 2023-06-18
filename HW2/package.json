@@ -1,0 +1,12 @@
+{
+  "name": "homework_2",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon ./index.js"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.12"
+  }
+}
