@@ -1,0 +1,25 @@
+<% for (const todo of todos) { %>
+  <div class="card my-3">
+    <div class="card-body">
+      <h5 class="card-title"><%= todo.title %></h5>
+      <p class="card-text"><%= todo.description %></p>
+      <p class="card-text">Priority: <%= todo.priority %></p>
+      <p class="card-text">Due Date: <%= todo.due_date %></p>
+      <a
+        class="btn btn-info"
+        href="/change-todo-state/<%= todo.id %>"
+      >
+        <%= todo.done ? 'Done' : 'Not Done' %>
+      </a>
+      <a
+        class="btn btn-danger"
+        href="/remove-todo/<%= todo.id %>"
+      >
+        Remove
+      </a>
+      <a class="btn btn-success" href="/todo/<%= todo.id %>">
+        Detail
+      </a>
+    </div>
+  </div>
+  <% } %>
