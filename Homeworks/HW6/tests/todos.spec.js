@@ -15,13 +15,14 @@ test.serial('GET / renders the index page with filtered todos', async (t) => {
   const response = await supertest(app).get('/');
 
   t.is(response.status, 200);
-  t.assert(response.text.includes('Todo list'));
+  t.assert(response.text.includes('TODO list'));
 });
 
 test.serial('POST /new-todo creates a new todo and redirects to index', async (t) => {
   const newTodo = {
     title: 'New Todo',
     description: 'New Todo Description',
+    done: false,
     priority: 'High',
     due_date: '2022-01-01',
   };  
@@ -85,7 +86,8 @@ test.serial('POST /todo/:id updates a todo and redirects to detail page', async 
     description: 'Updated Description',
     priority: 'Low',
     due_date: '2022-02-02',
-  };  
+  };
+  
 
   const response = await supertest(app).post(`/todo/${todoId}`).send(updatedTodo);
 
