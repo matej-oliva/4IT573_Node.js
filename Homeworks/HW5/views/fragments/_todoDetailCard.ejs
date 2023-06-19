@@ -1,0 +1,21 @@
+<div id="todo-detail-card">
+	<div class="card my-3">
+		<div class="card-body">
+			<h5 class="card-title">Description</h5>
+			<p class="card-text"><%= todo.description %></p>
+			<h5 class="card-title">Priority</h5>
+			<p class="card-text"><%= todo.priority %></p>
+			<h5 class="card-title">Due Date</h5>
+			<p class="card-text"><%= todo.due_date %></p>
+			<h5 class="card-title">Status</h5>
+			<p class="card-text"><%= todo.done ? 'Done' : 'Not Done' %></p>
+		</div>
+	</div>
+	<a
+		class="btn btn-success"
+		href="/change-todo-state/<%= todo.id %>?doneState=<%= !todo.done %>"
+	>
+		<%= todo.done ? 'Mark as Not Done' : 'Mark as Done' %>
+	</a>
+	<a class="btn btn-danger" href="/remove-todo/<%= todo.id %>"> Remove </a>
+</div>

@@ -1,0 +1,11 @@
+<%- include('fragments/_header') %>
+  <div class="container mt-5">
+    <div class="d-flex flex-row align-items-center">
+      <a href="/" class="btn btn-secondary">Return</a>
+      <h1 class="mx-3 card-title"><%= todo.title %></h1>
+    </div>
+    <%- include('fragments/_todoDetailCard') %>
+
+    <%- include('fragments/_editTodoForm') %>
+  </div>
+  <%- include('fragments/_footer') %>
