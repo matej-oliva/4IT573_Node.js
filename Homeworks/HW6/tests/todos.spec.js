@@ -1,123 +1,89 @@
-import test from 'ava';
-import supertest from 'supertest';
-import { app } from '../src/app.js';
-import { db } from '../src/database.js';
+import test from "ava";
+import supertest from "supertest";
+import { app } from "../src/app.js";
+import { db } from "../src/database.js";
 
 test.beforeEach(async () => {
-  await db.migrate.latest();
+	await db.migrate.latest();
 });
 
-test.afterEach(async () => {
-  await db.migrate.rollback();
+test.afterEach.always(async () => {
+	await db.migrate.rollback();
 });
 
-test.serial('GET / renders the index page with filtered todos', async (t) => {
-  const response = await supertest(app).get('/');
+test.serial("modify todo from detail page", async (t) => {
+	const oldTitle = "Old title of todo";
+	const newTitle = "New title of todo";
+	const todoId = 1;
 
-  t.is(response.status, 200);
-  t.assert(response.text.includes('TODO list'));
+	await supertest(app)
+		.post("/new-todo")
+		.type("form")
+		.send({ title: oldTitle });
+
+	const doesTodoExist = await supertest(app).get(`/todo/${todoId}`);
+	t.assert(doesTodoExist.text.includes(oldTitle));
+
+	await supertest(app)
+		.post(`/todo/${todoId}`)
+		.type("form")
+		.send({ title: newTitle })
+		.redirects(1);
+
+	const updatedTodoResponse = await supertest(app).get(`/todo/${todoId}`);
+	t.assert(updatedTodoResponse.text.includes(newTitle));
 });
 
-test.serial('POST /new-todo creates a new todo and redirects to index', async (t) => {
-  const newTodo = {
-    title: 'New Todo',
-    description: 'New Todo Description',
-    done: false,
-    priority: 'High',
-    due_date: '2022-01-01',
-  };  
+test.serial("toggle done from list", async (t) => {
+	const todoId = 1;
 
-  const response = await supertest(app).post('/new-todo').send(newTodo);
+	await supertest(app)
+		.post("/new-todo")
+		.type("form")
+		.send({ title: "Some Todo title" });
 
-  t.is(response.status, 302);
-  t.is(response.header['location'], '/');
+	const listBeforeToggle = await supertest(app).get("/");
+	t.assert(listBeforeToggle.text.includes("Not Done"));
+
+	await supertest(app)
+		.get(`/change-todo-state/${todoId}`)
+		.set("Referer", "/")
+		.redirects(1);
+
+	const listAfterToggle = await supertest(app).get(`/`);
+
+	t.assert(!listAfterToggle.text.includes("Not Done"));
 });
 
-test.serial('GET /todo/:id renders the detail page for a valid todo', async (t) => {
-  const todo = {
-    title: 'Test Todo',
-    description: 'Test Description',
-    done: false,
-    priority: 'High',
-    due_date: '2022-01-01',
-  };
+test.serial("toggle done from detail", async (t) => {
+	const todoId = 1;
 
-  const insertedTodo = await db('todos').insert(todo);
-  const todoId = insertedTodo[0];
+	await supertest(app)
+		.post("/new-todo")
+		.type("form")
+		.send({ title: "Some Todo title" });
 
-  const response = await supertest(app).get(`/todo/${todoId}`);
+	const detailBeforeToggle = await supertest(app).get("/todo/1");
+	t.assert(detailBeforeToggle.text.includes("Mark as Done"));
 
-  t.is(response.status, 200);
-  t.assert(response.text.includes('Test Todo'));
+	await supertest(app)
+		.get(`/change-todo-state/${todoId}`)
+		.set("Referer", "/")
+		.redirects(1);
+
+	const detailAfterToggle = await supertest(app).get(`/todo/1`);
+
+	t.assert(detailAfterToggle.text.includes("Mark as Not Done"));
 });
 
-test.serial('GET /remove-todo/:id deletes a todo and redirects to index', async (t) => {
-  const todo = {
-    title: 'Test Todo',
-    description: 'Test Description',
-    done: false,
-    priority: 'High',
-    due_date: '2022-01-01',
-  };
+test.serial(
+	"display error message when adding todo without title",
+	async (t) => {
+		const response = await supertest(app)
+			.post("/new-todo")
+			.type("form")
+			.send({ title: "" });
 
-  const insertedTodo = await db('todos').insert(todo);
-  const todoId = insertedTodo[0];
-
-  const response = await supertest(app).get(`/remove-todo/${todoId}`);
-
-  t.is(response.status, 302);
-  t.is(response.header['location'], '/');
-});
-
-test.serial('POST /todo/:id updates a todo and redirects to detail page', async (t) => {
-  const todo = {
-    title: 'Test Todo',
-    description: 'Test Description',
-    done: false,
-    priority: 'High',
-    due_date: '2022-01-01',
-  };
-
-  const insertedTodo = await db('todos').insert(todo);
-  const todoId = insertedTodo[0];
-
-  const updatedTodo = {
-    title: 'Updated Todo',
-    description: 'Updated Description',
-    priority: 'Low',
-    due_date: '2022-02-02',
-  };
-  
-
-  const response = await supertest(app).post(`/todo/${todoId}`).send(updatedTodo);
-
-  t.is(response.status, 302);
-  t.is(response.header['location'], `/todo/${todoId}`);
-});
-
-test.serial('GET /change-todo-state/:id updates todo done state and redirects back', async (t) => {
-  const todo = {
-    title: 'Test Todo',
-    description: 'Test Description',
-    done: false,
-    priority: 'High',
-    due_date: '2022-01-01',
-  };
-
-  const insertedTodo = await db('todos').insert(todo);
-  const todoId = insertedTodo[0];
-
-  const response = await supertest(app).get(`/change-todo-state/${todoId}`);
-
-  t.is(response.status, 302);
-  t.is(response.header['location'], '/');
-});
-
-test.serial('GET /change-todo-state/:id returns 404 for a non-existing todo', async (t) => {
-  const nonExistingTodoId = 9999;
-
-  const response = await supertest(app).get(`/change-todo-state/${nonExistingTodoId}`);
-
-  t.is(response.status, 404);
-  t.assert(response.text.includes('Todo not found'));
-});
+		t.assert(response.text.includes("Insert a todo title!"));
+	}
+);

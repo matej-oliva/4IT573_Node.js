@@ -35,7 +35,7 @@ app.get("/", async (req, res) => {
 		}
 
 		const filteredTodos = await todos;
-		res.render("index", { todos: filteredTodos, query: req.query });
+		res.render("index", { todos: filteredTodos, query: req.query, errorMessage: '' });
 	} catch (error) {
 		console.error(error);
 		res.status(500).send("Internal Server Error");
@@ -44,6 +44,14 @@ app.get("/", async (req, res) => {
 
 app.post("/new-todo", async (req, res) => {
 	try {
+		const title = req.body.title;
+    if (!title) {
+      const errorMessage = 'Insert a todo title!';
+      const todos = await db("todos");
+      res.render("index", { todos, query:req.query, errorMessage });
+      return;
+    }
+
 		await db("todos").insert({
 			title: req.body.title,
 			description: req.body.description,
