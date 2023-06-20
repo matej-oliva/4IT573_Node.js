@@ -1,0 +1,30 @@
+<%- include('fragments/_header') %>
+
+<div class="container mt-5">
+	<div
+		class="d-flex flex-direction-row justify-content-between align-items-center"
+	>
+		<h1>TODO list</h1>
+		<button
+			type="button"
+			id="logout"
+			class="btn btn-outline-primary"
+		>
+			Logout
+		</button>
+		<button
+			type="button"
+			id="login"
+			class="btn btn-primary"
+			data-bs-toggle="modal"
+			data-bs-target="#loginModal"
+		>
+			Login/Register
+		</button>
+	</div>
+
+	<div id="new-todo"><%- include('fragments/_newTodo') %></div>
+	<div id="filters"><%- include('fragments/_filters') %></div>
+	<div id="todos"><%- include('fragments/_todos') %></div>
+</div>
+<%- include('fragments/_login') %> <%- include('fragments/_footer') %>

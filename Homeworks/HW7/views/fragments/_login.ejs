@@ -1,0 +1,113 @@
+<div
+	class="modal fade"
+	id="loginModal"
+	tabindex="-1"
+	aria-labelledby="loginModalLabel"
+	aria-hidden="true"
+>
+	<div class="modal-dialog">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="loginModalLabel">Login/Register</h5>
+				<button
+					type="button"
+					class="btn-close"
+					data-bs-dismiss="modal"
+					aria-label="Close"
+				></button>
+			</div>
+			<div class="modal-body">
+				<ul class="nav nav-tabs">
+					<li class="nav-item">
+						<a
+							class="nav-link active"
+							id="login-tab"
+							data-bs-toggle="tab"
+							href="#login-form"
+							>Login</a
+						>
+					</li>
+					<li class="nav-item">
+						<a
+							class="nav-link"
+							id="register-tab"
+							data-bs-toggle="tab"
+							href="#register-form"
+							>Register</a
+						>
+					</li>
+				</ul>
+				<div class="tab-content mt-3">
+					<!-- Login Form -->
+					<div class="tab-pane fade show active" id="login-form">
+						<form>
+							<div class="mb-3">
+								<label for="login-username" class="form-label"
+									>Username</label
+								>
+								<input
+									type="text"
+									class="form-control"
+									id="login-username"
+									name="username"
+									required
+								/>
+							</div>
+							<div class="mb-3">
+								<label for="login-password" class="form-label"
+									>Password</label
+								>
+								<input
+									type="password"
+									class="form-control"
+									id="login-password"
+									name="password"
+									required
+								/>
+							</div>
+							<button type="submit" class="btn btn-primary">
+								Login
+							</button>
+						</form>
+					</div>
+					<!-- Register Form -->
+					<div class="tab-pane fade" id="register-form">
+						<form>
+							<div class="mb-3">
+								<label
+									for="register-username"
+									class="form-label"
+									>Username</label
+								>
+								<input
+									type="text"
+									class="form-control"
+									id="register-username"
+									name="username"
+									required
+								/>
+							</div>
+							<div class="mb-3">
+								<label
+									for="register-password"
+									class="form-label"
+									>Password</label
+								>
+								<input
+									type="password"
+									class="form-control"
+									id="register-password"
+									name="password"
+									required
+								/>
+							</div>
+							<button type="submit" class="btn btn-primary">
+								Register
+							</button>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
