@@ -32,6 +32,6 @@
 	</div>
 </form>
 
-<% if (errorMessage) { %>
-<div class="alert alert-danger mt-3"><%= errorMessage %></div>
+<% if (typeof errorMessage !== 'undefined') { %>
+  <div class="alert alert-danger mt-3"><%= errorMessage %></div>
 <% } %>

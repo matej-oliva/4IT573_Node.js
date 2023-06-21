@@ -5,82 +5,148 @@ import {
 	sendTodoDoneStateToAllConnections,
 	sendTodosToAllConnections,
 } from "./websockets.js";
+import bcrypt from "bcrypt";
+import session from "express-session";
 
 export const app = express();
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.set("view engine", "ejs");
+app.use(
+	session({
+		secret: "The Ring Must Be Destroyed In The Fires Of Mount Doom",
+		resave: false,
+		saveUninitialized: false,
+	})
+);
 
 app.get("/", async (req, res) => {
 	try {
-		const { done, priority, due_date_from, due_date_to, search } =
-			req.query;
-		let todos = db("todos");
+		if (!req.session.user) {
+			res.render("index", {
+				todos: [],
+				query: req.query,
+				user: req.session.user,
+				isLoggedIn: false,
+			});
+			return;
+		}
 
-		if (done) {
+		let todos = db("todos").where("user_id", req.session.user.id);
+
+		const { done, priority, due_date_from, due_date_to, search } = req.query;
+
+		if (done !== undefined) {
 			todos = todos.where("done", done === "true");
 		}
 		if (priority) {
-			todos = todos.where("priority", priority);
+			todos = todos.andWhere("priority", priority);
 		}
 		if (due_date_from && due_date_to) {
-			todos = todos.whereBetween("due_date", [
-				due_date_from,
-				due_date_to,
-			]);
+			todos = todos.andWhereBetween("due_date", [due_date_from, due_date_to]);
 		}
 		if (search) {
-			todos = todos.where("title", "like", `%${search}%`);
+			todos = todos.andWhere("title", "like", `%${search}%`);
 		}
 
 		const filteredTodos = await todos;
-		res.render("index", { todos: filteredTodos, query: req.query, errorMessage: '' });
+
+		res.render("index", {
+			todos: filteredTodos,
+			query: req.query,
+			user: req.session.user,
+			isLoggedIn: req.session.user ? true : false,
+		});
 	} catch (error) {
 		console.error(error);
-		res.status(500).send("Internal Server Error");
+		res.render("index", {
+			query: req.query,
+			user: req.session.user,
+			errorMessage: "Internal Server Error",
+			todos: [],
+			isLoggedIn: false,
+		});
 	}
 });
 
 app.post("/new-todo", async (req, res) => {
 	try {
-		const title = req.body.title;
-    if (!title) {
-      const errorMessage = 'Insert a todo title!';
-      const todos = await db("todos");
-      res.render("index", { todos, query:req.query, errorMessage });
-      return;
-    }
+		if (!req.session.user) {
+			const todos = await db("todos");
+			res.render("index", {
+				todos,
+				query: req.query || {},
+				errorMessage: "Sign in, please!",
+			});
+			return;
+		}
+
+		const { title, description, priority, due_date } = req.body;
+
+		if (!title) {
+			const todos = await db("todos");
+			res.render("index", {
+				todos,
+				query: req.query,
+				user: req.session.user,
+				errorMessage: "Insert a todo title!",
+			});
+			return;
+		}
 
 		await db("todos").insert({
-			title: req.body.title,
-			description: req.body.description,
+			title: title,
+			description: description,
 			done: false,
-			priority: req.body.priority,
-			due_date: req.body.due_date,
+			priority: priority,
+			due_date: due_date,
+			user_id: req.session.user.id,
 		});
+
 		sendTodosToAllConnections();
 		res.redirect("/");
 	} catch (error) {
 		console.error(error);
-		res.status(500).send("Internal Server Error");
+		res.render("index", {
+			query: req.query,
+			user: req.session.user,
+			errorMessage: "Internal Server Error",
+			todos: [],
+			isLoggedIn: false,
+		});
 	}
 });
 
 app.get("/todo/:id", async (req, res) => {
 	const id = Number(req.params.id);
+	const isLoggedIn = req.session.user ? true : false;
 
 	try {
 		const todo = await db("todos").where("id", id).first();
-		if (!todo) {
-			sendTodoDeleteToAllConnections(id);
-			res.redirect("/");
+		if (!todo || todo.user_id !== req.session.user.id) {
+
+			res.render("index", {
+				query: req.query,
+				user: req.session.user,
+				errorMessage:
+					"You are trying to access a todo that does not exist or belongs to someone else!",
+				todos: [],
+				isLoggedIn: isLoggedIn,
+			});
 			return;
 		}
 		res.render("detail", { todo });
 	} catch (error) {
 		console.error(error);
-		res.status(500).send("Internal Server Error");
+		res.render("index", {
+			query: req.query,
+			user: req.session.user,
+			errorMessage:
+				"You are trying to access a todo that does not exist or belongs to someone else!",
+			todos: [],
+			isLoggedIn: isLoggedIn,
+		});
 	}
 });
 
@@ -96,7 +162,13 @@ app.get("/remove-todo/:id", async (req, res) => {
 		res.redirect("/");
 	} catch (error) {
 		console.error(error);
-		res.status(500).send("Internal Server Error");
+		res.render("index", {
+			query: req.query,
+			user: req.session.user,
+			errorMessage: "Internal Server Error",
+			todos: [],
+			isLoggedIn: false,
+		});
 	}
 });
 
@@ -116,34 +188,166 @@ app.post("/todo/:id", async (req, res) => {
 		res.redirect(`/todo/${id}`);
 	} catch (error) {
 		console.error(error);
-		res.status(500).send("Internal Server Error");
+		res.render("index", {
+			query: req.query,
+			user: req.session.user,
+			errorMessage: "Internal Server Error",
+			todos: [],
+			isLoggedIn: false,
+		});
 	}
 });
 
-
-
 app.get("/change-todo-state/:id", async (req, res) => {
-	const idToChange = Number(req.params.id);
+	const idToToggle = Number(req.params.id);
 
 	try {
-		const todo = await db("todos").where("id", idToChange).first();
-		if (todo) {
-			const updatedDoneState = !todo.done;
+		const todo = await db("todos").where("id", idToToggle).first();
 
-			await db("todos")
-				.where("id", idToChange)
-				.update({ done: updatedDoneState });
+		if (!todo) {
+			const isLoggedIn = req.session.user ? true : false;
+			const todos = isLoggedIn
+				? await db("todos").where("user_id", req.session.user.user_id)
+				: [];
 
-			sendTodosToAllConnections();
-			sendTodoDoneStateToAllConnections(idToChange, updatedDoneState);
-			res.redirect(`back`);
-		} else {
-			res.status(404).send("Todo not found");
+			res.render("index", {
+				query: req.query,
+				user: req.session.user,
+				errorMessage: "Todo not found",
+				todos,
+				isLoggedIn,
+			});
+			return;
 		}
+
+		await db("todos").where("id", idToToggle).update({
+			done: !todo.done,
+		});
+
+		sendTodosToAllConnections();
+		sendTodoDoneStateToAllConnections(idToToggle, !todo.done);
+
+		res.redirect("back");
 	} catch (error) {
 		console.error(error);
-		res.status(500).send("Internal Server Error");
+		res.render("index", {
+			query: req.query,
+			user: req.session.user,
+			errorMessage: "Internal Server Error",
+			todos: [],
+			isLoggedIn: false,
+		});
+		return;
 	}
+});
+
+app.post("/register", async (req, res) => {
+	try {
+		const { username, password } = req.body;
+		if (!username || !password) {
+			res.render("index", {
+				query: req.query,
+				user: req.session.user,
+				errorMessage: "Please provide username and password",
+				todos: [],
+				isLoggedIn: false,
+			});
+			return;
+		}
+		const existingUser = await db("users")
+			.where("username", username)
+			.first();
+		if (existingUser) {
+			res.render("index", {
+				query: req.query,
+				user: req.session.user,
+				errorMessage: "Username already exists",
+				todos: [],
+				isLoggedIn: false,
+			});
+			return;
+		}
+
+		const hashedPassword = await bcrypt.hash(password, 10);
+
+		const newUser = await db("users").insert({
+			username: username,
+			password: hashedPassword,
+		});
+
+		req.session.user = newUser;
+
+		res.redirect("/");
+	} catch (error) {
+		console.error(error);
+		res.render("index", {
+			query: req.query,
+			user: req.session.user,
+			errorMessage: "Internal server error",
+			todos: [],
+			isLoggedIn: false,
+		});
+		return;
+	}
+});
+
+app.post("/login", async (req, res) => {
+	try {
+		const { username, password } = req.body;
+		if (!username || !password) {
+			res.render("index", {
+				query: req.query,
+				user: req.session.user,
+				errorMessage: "Please provide a username and password",
+				todos: [],
+				isLoggedIn: false,
+			});
+			return;
+		}
+
+		const user = await db("users").where("username", username).first();
+		if (!user) {
+			res.render("index", {
+				query: req.query,
+				user: req.session.user,
+				errorMessage: "Invalid username or password",
+				todos: [],
+				isLoggedIn: false,
+			});
+			return;
+		}
+
+		const passwordMatch = await bcrypt.compare(password, user.password);
+		if (!passwordMatch) {
+			res.render("index", {
+				query: req.query,
+				user: req.session.user,
+				errorMessage: "Invalid username or password",
+				todos: [],
+				isLoggedIn: false,
+			});
+			return;
+		}
+
+		req.session.user = user;
+
+		res.redirect("/");
+	} catch (error) {
+		console.error(error);
+		res.render("index", {
+			query: req.query,
+			user: req.session.user,
+			errorMessage: "Internal Server Error",
+			todos: [],
+			isLoggedIn: false,
+		});
+		return;
+	}
+});
+
+app.get("/logout", (req, res) => {
+	req.session.destroy();
+	res.redirect("/");
 });
 
 app.use((req, res) => {

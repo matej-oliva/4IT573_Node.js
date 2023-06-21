@@ -12,78 +12,193 @@ test.afterEach.always(async () => {
 });
 
 test.serial("modify todo from detail page", async (t) => {
-	const oldTitle = "Old title of todo";
+	const agent = supertest.agent(app);
+	const title = "Old title of todo";
 	const newTitle = "New title of todo";
 	const todoId = 1;
 
-	await supertest(app)
-		.post("/new-todo")
+	const username = "existinguser";
+	const password = "testpassword";
+
+	await agent
+		.post("/register")
 		.type("form")
-		.send({ title: oldTitle });
+		.send({ username, password })
+		.redirects(1);
 
-	const doesTodoExist = await supertest(app).get(`/todo/${todoId}`);
-	t.assert(doesTodoExist.text.includes(oldTitle));
+	await agent
+		.post("/login")
+		.type("form")
+		.send({ username, password })
+		.redirects(1);
 
-	await supertest(app)
+	await agent.post("/new-todo").type("form").send({ title }).redirects(1);
+
+	const doesTodoExist = await agent.get(`/todo/${todoId}`);
+	t.assert(doesTodoExist.text.includes(title));
+
+	await agent
 		.post(`/todo/${todoId}`)
 		.type("form")
 		.send({ title: newTitle })
 		.redirects(1);
 
-	const updatedTodoResponse = await supertest(app).get(`/todo/${todoId}`);
+	const updatedTodoResponse = await agent.get(`/todo/${todoId}`);
 	t.assert(updatedTodoResponse.text.includes(newTitle));
 });
 
 test.serial("toggle done from list", async (t) => {
+	const agent = supertest.agent(app);
 	const todoId = 1;
+	const username = "existinguser";
+	const password = "testpassword";
+	const title = "Some Todo title";
 
-	await supertest(app)
-		.post("/new-todo")
+	await agent.post("/register").type("form").send({ username, password });
+
+	await agent
+		.post("/login")
 		.type("form")
-		.send({ title: "Some Todo title" });
-
-	const listBeforeToggle = await supertest(app).get("/");
-	t.assert(listBeforeToggle.text.includes("Not Done"));
-
-	await supertest(app)
-		.get(`/change-todo-state/${todoId}`)
-		.set("Referer", "/")
+		.send({ username, password })
 		.redirects(1);
 
-	const listAfterToggle = await supertest(app).get(`/`);
+	const listBeforeToggle = await agent.post("/new-todo").type("form").send({ title }).redirects(1);
 
-	t.assert(!listAfterToggle.text.includes("Not Done"));
+	t.assert(listBeforeToggle.text.includes(title), "Todo should be listed");
+
+	await agent.get(`/change-todo-state/${todoId}`).set("Referer", "/");
+
+	const listAfterToggle = await agent.get("/");
+
+	t.assert(
+		listAfterToggle.text.includes("Some Todo title"),
+		"Todo should be marked as done"
+	);
 });
 
 test.serial("toggle done from detail", async (t) => {
+	const agent = supertest.agent(app);
 	const todoId = 1;
+	const username = "existinguser";
+	const password = "testpassword";
+	const title = "Some Todo title";
 
-	await supertest(app)
-		.post("/new-todo")
+	await agent.post("/register").type("form").send({ username, password });
+
+	await agent
+		.post("/login")
 		.type("form")
-		.send({ title: "Some Todo title" });
-
-	const detailBeforeToggle = await supertest(app).get("/todo/1");
-	t.assert(detailBeforeToggle.text.includes("Mark as Done"));
-
-	await supertest(app)
-		.get(`/change-todo-state/${todoId}`)
-		.set("Referer", "/")
+		.send({ username, password })
 		.redirects(1);
 
-	const detailAfterToggle = await supertest(app).get(`/todo/1`);
+	await agent.post("/new-todo").type("form").send({ title }).redirects(1);
 
-	t.assert(detailAfterToggle.text.includes("Mark as Not Done"));
+	const detailBeforeToggle = await agent.get(`/todo/${todoId}`).redirects(1);
+	t.assert(
+		detailBeforeToggle.text.includes("Mark as Done"),
+		"Todo should be marked as not done => button should say 'Mark as Done'"
+	);
+
+	await agent
+		.get(`/change-todo-state/${todoId}`)
+		.set("Referer", `/todo/${todoId}`);
+
+	const detailAfterToggle = await agent.get(`/todo/${todoId}`);
+
+	t.assert(
+		detailAfterToggle.text.includes("Mark as Not Done"),
+		"Todo should be marked as done"
+	);
 });
 
 test.serial(
 	"display error message when adding todo without title",
 	async (t) => {
-		const response = await supertest(app)
-			.post("/new-todo")
+		const username = "existinguser";
+		const password = "testpassword";
+		const agent = supertest.agent(app);
+		await agent
+			.post("/register")
 			.type("form")
-			.send({ title: "" });
+			.send({ username: "username", password: "password" });
+
+		await agent
+			.post("/login")
+			.type("form")
+			.send({ username, password })
+			.redirects(1);
+
+		const response = await agent.post("/new-todo").send({ title: "" });
 
 		t.assert(response.text.includes("Insert a todo title!"));
+	}
+);
+
+test.serial("register new user", async (t) => {
+	const agent = supertest.agent(app);
+
+	const username = "existinguser";
+	const password = "existingpassword";
+	await agent.post("/register").type("form").send({ username, password });
+	await agent.post("/login").type("form").send({ username, password });
+
+	const homepage = await agent.get("/");
+
+	t.assert(homepage.text.includes("Welcome"));
+});
+
+test.serial("login with existing user", async (t) => {
+	const agent = supertest.agent(app);
+
+	const username = "existinguser";
+	const password = "existingpassword";
+	await agent
+		.post("/register")
+		.type("form")
+		.send({ username, password })
+		.redirects(1);
+	const response = await agent
+		.post("/login")
+		.type("form")
+		.send({ username, password })
+		.redirects(1);
+	t.assert(response.text.includes("Welcome"));
+});
+
+test.serial(
+	"display error message when registering with existing username",
+	async (t) => {
+		const agent = supertest.agent(app);
+		const username = "existinguser";
+		const password = "testpassword";
+		await agent
+			.post("/register")
+			.type("form")
+			.send({ username, password })
+			.redirects(1);
+
+		const response = await agent
+			.post("/register")
+			.type("form")
+			.send({ username, password });
+
+		t.assert(response.text.includes("Username already exists"));
+	}
+);
+
+test.serial(
+	"display error message when logging in with invalid credentials",
+	async (t) => {
+		const agent = supertest.agent(app);
+		const response = await agent
+			.post("/login")
+			.type("form")
+			.send({ username: "nonexistinguser", password: "testpassword" })
+			.redirects(1);
+
+		t.assert(
+			response.text.includes("Invalid username or password"),
+			"Invalid credentials error message should be displayed"
+		);
 	}
 );
