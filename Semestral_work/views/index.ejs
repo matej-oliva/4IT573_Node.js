@@ -1,0 +1,71 @@
+<div class="card text-center my-5">
+  <div class="card-body">
+    <% if (user) { %>
+    <h2>Welcome, <%= user.username %>!</h2>
+    <% } else { %>
+    <h2>Welcome to the RSS Reader!</h2>
+    <% } %>
+    <p class="card-text">
+      Read and manage your favorite feeds in one place.
+    </p>
+    <% if (!user) { %>
+    <a href="/login" class="btn btn-primary">Login</a>
+    <a href="/register" class="btn btn-outline-primary">Register</a>
+    <% } %>
+    <% if (user) { %> <% if (feeds.length > 0) { %>
+    <% feeds.forEach((feed) => { %>
+    <div class="my-5">
+      <h4 class="me-auto"><%= feed.name %></h4>
+      <% if (feed.items.length > 0) { %>
+      <ul class="list-group">
+        <% feed.items.slice(0, 50).forEach((item) => { %>
+        <li class="list-group-item d-flex flex-row">
+          <div class="d-flex flex-column text-start">
+            <div class="me-3 d-flex flex-row align-items my-auto">
+              <% if (item.image && Object.keys(item.image).length > 0) { %>
+              <% const imageUrl = item.image.url.replace('/7/', '/'); %>
+              <img src="<%= imageUrl %>" alt="Feed Image" class="rounded float-start me-3 object-fit-cover" height="100%" width="400px" />
+              <% } else if (item.enclosures && item.enclosures.length > 0) { %>
+              <% const imageUrl = item.enclosures[0].url.replace('/7/', '/'); %>
+              <img src="<%= imageUrl %>" alt="Feed Image" class="rounded float-start me-3 object-fit-cover" height="100%" width="400px" />
+              <% } else if (item["media:group"]["media:content"]?.length > 0) { %>
+              <% const content = item["media:group"]["media:content"][0]["@"]; %>
+              <% const imageUrl = content["url"]; %>
+              <% const title = content["#"]; %>
+              <img src="<%= imageUrl %>" alt="<%= title %>" class="rounded float-start me-3 object-fit-cover" height="100%" width="400px" />
+              <% } %>
+              <div class="d-flex flex-column text-start ml-5">
+                <h5><%= item.title %></h5>
+                <% if (item.author) { %>
+                <p><%= item.author %></p>
+                <% } %>
+                <% if (item["rss:pubdate"] && item["rss:pubdate"]["#"]) { %>
+                  <% const pubDate = item["rss:pubdate"]["#"]; %>
+                  <% const lastColonIndex = pubDate.lastIndexOf(":"); %>
+                  <% const pubDateWithoutTimezone = pubDate.substring(0, lastColonIndex); %>
+                  <p><%= pubDateWithoutTimezone %></p>
+                <% } %>
+                
+                <p><%= item.description %></p>
+                <div class="d-inline-flex ms-auto">
+                  <a href="<%= item.link %>" class="btn btn-primary">
+                    Read More
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </li>
+        <% }); %>
+      </ul>
+      <% } else { %>
+      <p>No items found.</p>
+      <% } %>
+    </div>
+    <% }); %>
+    <% } else { %>
+    <p>No feeds found.</p>
+    <% } %>
+    <% } %>
+  </div>
+</div>
